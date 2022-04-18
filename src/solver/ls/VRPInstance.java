@@ -36,8 +36,8 @@ public class VRPInstance
     System.out.println("Vehicle capacity: " + vehicleCapacity);
       
     demandOfCustomer = new int[numCustomers];
-	xCoordOfCustomer = new double[numCustomers];
-	yCoordOfCustomer = new double[numCustomers];
+	  xCoordOfCustomer = new double[numCustomers];
+	  yCoordOfCustomer = new double[numCustomers];
 	
     for (int i = 0; i < numCustomers; i++)
 	{

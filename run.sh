@@ -12,4 +12,5 @@ fi
 	
 input=$1
 
-java -cp src solver.ls.Main $input
+# java -cp src solver.ls.Main $input
+python3 src/solver/ls/VRPInstance.py $input
