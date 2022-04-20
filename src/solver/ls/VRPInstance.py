@@ -2,6 +2,17 @@ import numpy as np
 import time
 import sys, json
 
+from sklearn.metrics import euclidean_distances
+
+class Customer:
+    def __init__(self, index, demand, x, y):
+        self.x = x
+        self.y = y
+        self.demand = demand
+        self.index = index
+
+
+
 class VRPInstance:
     def __init__(self, filePath):
         self.filePath = filePath
@@ -12,6 +23,7 @@ class VRPInstance:
         self.demandOfCustomer = []
         self.xCoordOfCustomer = []
         self.yCoordOfCustomer = []
+        self.customers = []
 
         with open(self.filePath, 'r') as file:
             self.rawData = file.read().split('\n')
@@ -25,18 +37,40 @@ class VRPInstance:
         print('CAPACITY: ', self.vehicleCapacity)
         print('RAW: ', self.rawData)
 
-        for customer in self.rawData[2:]:
+        for index, customer in enumerate(self.rawData[2:]):
             if not customer:
                 continue
             self.demandOfCustomer.append(customer[0])
             self.xCoordOfCustomer.append(customer[1])
             self.yCoordOfCustomer.append(customer[2])
+            self.customers.append(Customer(index+1, customer[0], customer[1], customer[2]))
         print('DEMANDS: ', self.demandOfCustomer)
         print('X COORDS: ', self.xCoordOfCustomer)
         print('Y COORDS: ', self.yCoordOfCustomer)
 
+    def initialize(self):
+        pass
+
     def solve(self):
         pass
+
+    def calcDistance(self, solution):
+        totalDistance = 0
+
+        for vehicle in solution:
+            curDistance = 0
+            for i in range(len(vehicle)):
+                if i == 0:
+                    curDistance += self.euclideanDistance((0,0), (vehicle[i].x, vehicle[i].y))
+                else:
+                    curDistance += self.euclideanDistance((vehicle[i-1].x, vehicle[i-1].y), (vehicle[i].x, vehicle[i].y))
+
+            totalDistance += curDistance
+        return totalDistance
+
+    def euclideanDistance(self, point1, point2):
+        return ((point1[0]-point2[0])**2 + (point1[1]-point2[0])**2)**.5
+
 
     def output(self):
         result = {}
