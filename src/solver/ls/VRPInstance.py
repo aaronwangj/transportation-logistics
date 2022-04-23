@@ -1,9 +1,10 @@
+import copy
 import json
+import random
 import sys
 import time
 
 import numpy as np
-from sklearn.metrics import euclidean_distances
 
 
 class Customer:
@@ -114,6 +115,38 @@ class VRPInstance:
             if is_ok:
                 break
 
+        curSol = routes
+        curDistance = self.calcDistance(curSol)
+        while True:
+            for neighbor in self.generateNeighborhood(curSol):
+                newDistance = self.calcDistance(neighbor)
+                if newDistance < curDistance:
+                    curSol = neighbor
+                    curDistance = newDistance
+                    break
+            break
+        return curSol
+
+    def generateNeighborhood(solution):
+        # random index for choosing vehicles to move customer
+        randomIndex = random.randint(0, len(solution) - 1)
+        vehicle1 = solution[randomIndex - 1]
+        vehicle2 = solution[randomIndex]
+
+        # random list of indices of customers to move from vehicle1 -> vehicle 2
+        indexes = random.randrnage(0, len(vehicle1))
+        for index in indexes:
+            """
+            remove customer, add to other vehicle, yield new solution
+            """
+            movingCustomer = vehicle1.pop(index)
+            insertIndex = random.randint(0, len(vehicle2) - 1)
+            vehicle2 = vehicle2[insertIndex:] + movingCustomer + vehicle2[:insertIndex]
+            newSolution = copy.deepcopy(solution)
+            newSolution[randomIndex - 1] = vehicle1
+            newSolution[randomIndex] = vehicle2
+            yield newSolution
+
     def calcDistance(self, solution):
         totalDistance = 0
 
@@ -124,11 +157,15 @@ class VRPInstance:
                     curDistance += self.euclideanDistance(
                         (0, 0), (vehicle[i].x, vehicle[i].y)
                     )
-                else:
+                    continue
+                elif i == len(vehicle) - 1:
                     curDistance += self.euclideanDistance(
-                        (vehicle[i - 1].x, vehicle[i - 1].y),
-                        (vehicle[i].x, vehicle[i].y),
+                        (vehicle[i].x, vehicle[i].y), (0, 0)
                     )
+
+                curDistance += self.euclideanDistance(
+                    (vehicle[i - 1].x, vehicle[i - 1].y), (vehicle[i].x, vehicle[i].y)
+                )
 
             totalDistance += curDistance
         return totalDistance
