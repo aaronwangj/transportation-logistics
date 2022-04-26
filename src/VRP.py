@@ -6,6 +6,7 @@ import time
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 
 @dataclass
@@ -175,8 +176,33 @@ class VRPInstance:
 
     def solve(self) -> VRPSolution:
         solution = self.generate_initial_routes()
-        solution.export("output.sol")
-        return solution
+        return self.local_search(
+            solution,
+        )
+
+    def local_search(
+        self,
+        initial_solution: VRPSolution,
+        neighbor: Callable[[VRPSolution], VRPSolution],
+        timeout: float,
+        non_improving_limit: int = 4,
+    ) -> VRPSolution:
+        start = time.time()
+
+        n_non_improving = 0
+        best_solution = initial_solution
+        best_objective = initial_solution.get_objective_value()
+        while time.time() - start < timeout and n_non_improving < non_improving_limit:
+            next_solution = neighbor()
+            next_objective = next_solution.get_objective_value()
+            if next_objective < best_objective:
+                best_solution = next_solution
+                best_objective = next_objective
+                n_non_improving = 0
+            else:
+                n_non_improving += 1
+
+        return best_solution
 
 
 parser = ArgumentParser()
