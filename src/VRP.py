@@ -62,7 +62,7 @@ class VRPSolution:
         return "\n".join(lines)
 
     def as_file_str(self, assert_temporary_route=True) -> str:
-        lines = [f"{self.get_objective_value()} 0"]
+        lines = [f"{self.get_objective_value():.1f} 0"]
         for i, route in enumerate(self.routes):
             if i == len(self.routes) - 1:
                 if len(route) != 0 and assert_temporary_route:
