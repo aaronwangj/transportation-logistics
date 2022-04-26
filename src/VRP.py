@@ -114,6 +114,36 @@ class VRPSolution:
         distance += self.get_distance_between(route[-1], 0)
         return distance
 
+    def neighbor_2Exchange(self) -> VRPSolution:
+        #pick random route
+        newRoutes = [x[:] for x in self.routes]
+        randRoute = newRoutes[int(len(newRoutes) * random.random())]
+
+        #swap two random customers in route
+        i1, i2 = random.sample(range(len(randRoute)), 2)
+        randRoute[i1], randRoute[i2] = randRoute[i2], randRoute[i1]
+        return newRoutes
+
+    def neighbor_3Exchange(self) -> VRPSolution:
+        #pick random route
+        newRoutes = [x[:] for x in self.routes]
+        randRoute = newRoutes[int(len(newRoutes) * random.random())]
+
+        #swap two random customers in route
+        i1, i2, i3 = random.sample(range(len(randRoute)), 3)
+        randRoute[i1], randRoute[i2], randRoute[i3] = randRoute[i3], randRoute[i1], randRoute[i2]
+        return newRoutes
+
+    def neighbor_relocation(self) -> VRPSolution:
+        newRoutes = [x[:] for x in self.routes]
+        #pick random routes
+        givingRoute = newRoutes[int(len(self.routes) * random.random())]
+        gettingRoute = newRoutes[int(len(self.routes) * random.random())]
+
+        customer = givingRoute.pop(random.sample(range(len(givingRoute)), 1))
+        gettingRoute.append(customer)
+        return newRoutes
+
 
 class VRPInstance:
     def __init__(self, filename: str):
@@ -203,6 +233,7 @@ class VRPInstance:
                 n_non_improving += 1
 
         return best_solution
+
 
 
 parser = ArgumentParser()
