@@ -114,35 +114,108 @@ class VRPSolution:
         distance += self.get_distance_between(route[-1], 0)
         return distance
 
-    def neighbor_2Exchange(self) -> VRPSolution:
-        #pick random route
-        newRoutes = [x[:] for x in self.routes]
-        randRoute = newRoutes[int(len(newRoutes) * random.random())]
+    def copy(self) -> VRPSolution:
+        # https://stackoverflow.com/a/35008777
+        return VRPSolution(list(map(list, self.routes)), self.config)
 
-        #swap two random customers in route
-        i1, i2 = random.sample(range(len(randRoute)), 2)
-        randRoute[i1], randRoute[i2] = randRoute[i2], randRoute[i1]
-        return newRoutes
+    def neighbor_two_exchange(self) -> VRPSolution:
+        solution = self.copy()
 
-    def neighbor_3Exchange(self) -> VRPSolution:
-        #pick random route
-        newRoutes = [x[:] for x in self.routes]
-        randRoute = newRoutes[int(len(newRoutes) * random.random())]
+        # pick a random route
+        route_i = solution.routes[random.randint(0, len(solution.routes) - 1)]
+        if len(route_i) < 2:
+            return solution
+        # swap two random customers within the route and reverse the ordering
+        i = random.randint(0, len(route_i) - 1)
+        j = random.randint(i + 1, len(route_i))
+        route_i[i:j] = reversed(route_i[i:j])
+        return solution
 
-        #swap two random customers in route
-        i1, i2, i3 = random.sample(range(len(randRoute)), 3)
-        randRoute[i1], randRoute[i2], randRoute[i3] = randRoute[i3], randRoute[i1], randRoute[i2]
-        return newRoutes
+    def neighbor_or_exchange(self) -> VRPSolution:
+        solution = self.copy()
+        # pick random routes
+        route_i = solution.routes[random.randint(0, len(solution.routes) - 1)]
+
+        if len(route_i) == 0:
+            return solution
+
+        route_j = solution.routes[random.randint(0, len(solution.routes) - 1)]
+
+        n_customers = random.randint(1, min(3, len(route_i)))
+        i = random.randint(0, len(route_i) - n_customers)
+
+        spliced = route_i[i : i + n_customers]
+        route_i = route_i[:i] + route_i[i + n_customers :]
+
+        j = random.randint(0, len(route_j))
+        route_j = route_j[:j] + spliced + route_j[j:]
+        return solution
 
     def neighbor_relocation(self) -> VRPSolution:
-        newRoutes = [x[:] for x in self.routes]
-        #pick random routes
-        givingRoute = newRoutes[int(len(self.routes) * random.random())]
-        gettingRoute = newRoutes[int(len(self.routes) * random.random())]
+        solution = self.copy()
+        # pick random routes
+        route_i = solution.routes[random.randint(0, len(solution.routes) - 1)]
 
-        customer = givingRoute.pop(random.sample(range(len(givingRoute)), 1))
-        gettingRoute.append(customer)
-        return newRoutes
+        if len(route_i) == 0:
+            return solution
+
+        route_j = solution.routes[random.randint(0, len(solution.routes) - 1)]
+        i = random.randint(0, len(route_i) - 1)
+        customer = route_i.pop(i)
+        j = random.randint(0, len(route_j))
+        route_j.insert(j, customer)
+
+        return solution
+
+    def neighbor_exchange(self) -> VRPSolution:
+        solution = self.copy()
+        # pick random routes
+        route_i = solution.routes[random.randint(0, len(solution.routes) - 1)]
+        if len(route_i) == 0:
+            return solution
+
+        route_j = solution.routes[random.randint(0, len(solution.routes) - 1)]
+        if len(route_j) == 0:
+            return solution
+
+        i = random.randint(0, len(route_i) - 1)
+        j = random.randint(0, len(route_j) - 1)
+
+        customer_i = route_i[i]
+        customer_j = route_j[j]
+        route_i = route_i[: i - 1] + [customer_j] + route_i[i:]
+        route_j = route_j[: j - 1] + [customer_i] + route_j[j:]
+        return solution
+
+    def neighbor_crossover(self) -> VRPSolution:
+        solution = self.copy()
+        # pick random routes
+        route_i = solution.routes[random.randint(0, len(solution.routes) - 1)]
+        if len(route_i) == 0:
+            return solution
+
+        route_j = solution.routes[random.randint(0, len(solution.routes) - 1)]
+        if len(route_j) == 0:
+            return solution
+
+        i = random.randint(0, len(route_i) - 1)
+        j = random.randint(0, len(route_j) - 1)
+
+        route_i_tail = route_i[i:]
+        route_j_tail = route_j[j:]
+        route_i = route_i[:i] + route_j_tail
+        route_j = route_j[:j] + route_i_tail
+        return solution
+
+    def neighbor_portfolio(self) -> VRPSolution:
+        solutions = [
+            self.neighbor_two_exchange(),
+            self.neighbor_relocation(),
+            self.neighbor_or_exchange(),
+            self.neighbor_crossover(),
+            self.neighbor_exchange(),
+        ]
+        return min(solutions, key=lambda s: s.get_objective_value())
 
 
 class VRPInstance:
@@ -206,8 +279,11 @@ class VRPInstance:
 
     def solve(self) -> VRPSolution:
         solution = self.generate_initial_routes()
+        neighbor = lambda n: n.neighbor_portfolio()
         return self.local_search(
             solution,
+            neighbor,
+            300,
         )
 
     def local_search(
@@ -215,25 +291,29 @@ class VRPInstance:
         initial_solution: VRPSolution,
         neighbor: Callable[[VRPSolution], VRPSolution],
         timeout: float,
-        non_improving_limit: int = 4,
+        non_improving_limit: int = 100,
     ) -> VRPSolution:
         start = time.time()
 
         n_non_improving = 0
-        best_solution = initial_solution
-        best_objective = initial_solution.get_objective_value()
-        while time.time() - start < timeout and n_non_improving < non_improving_limit:
-            next_solution = neighbor()
+        strikes = 0
+        current_solution = initial_solution
+        current_objective = initial_solution.get_objective_value()
+        while time.time() - start < timeout and strikes < 10:
+            next_solution = neighbor(current_solution)
             next_objective = next_solution.get_objective_value()
-            if next_objective < best_objective:
-                best_solution = next_solution
-                best_objective = next_objective
+            if next_objective < current_objective:
+                current_solution = next_solution
+                current_objective = next_objective
                 n_non_improving = 0
             else:
                 n_non_improving += 1
 
-        return best_solution
+            if n_non_improving >= non_improving_limit:
+                n_non_improving = 0
+                strikes += 1
 
+        return current_solution
 
 
 parser = ArgumentParser()
@@ -245,6 +325,8 @@ def main(args):
     instance = VRPInstance(input_file)
     start = time.time()
     solution = instance.solve()
+    solution.export(f"{input_file.name}.sol")
+    print(solution)
     end = time.time()
 
     print(
