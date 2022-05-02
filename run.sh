@@ -13,4 +13,4 @@ fi
 input=$1
 
 # java -cp src solver.ls.Main $input
-python3 src/VRP.py -i $input
+./pypy-local/bin/pypy3.9 src/VRP.py -i $input
